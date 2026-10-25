@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+
+# Chart definitions are local-only by policy (regenerate via chatbot.md)
+timing_charts/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/

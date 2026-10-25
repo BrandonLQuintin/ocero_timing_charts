@@ -1,0 +1,2 @@
+# Chart rendering & preview
+matplotlib>=3.7
