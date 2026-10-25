@@ -1,5 +1,7 @@
 # Timing Charts
 
+English | [日本語](README.ja.md)
+
 **A timechart maker for people who don't have AI coding tools at work — just a
 browser chatbot (Copilot web, ChatGPT, ...) and Python 3.10+ installed.**
 

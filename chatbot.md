@@ -1,5 +1,7 @@
 # Copilot prompt for generating timing charts
 
+English | [日本語](chatbot.ja.md)
+
 ## How to use this file (for humans — do not paste this section)
 
 1. Open a chat with Copilot.

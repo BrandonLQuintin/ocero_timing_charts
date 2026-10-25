@@ -1,0 +1,79 @@
+# タイミングチャート生成用プロンプト（Copilot貼り付け用）
+
+[English](chatbot.md) | 日本語
+
+## このファイルの使い方（人間用 — このセクションは貼り付けないでください）
+
+1. Copilotのチャットを開きます。
+2. まず、作りたいタイミングチャートの説明（信号、タイミング、相互関係）を書きます。
+3. 水平線より下の内容をすべてコピーし、説明の後ろに貼り付けます。
+4. Copilotが返したコードブロックを1つ、`timing_charts/timingchart_<短い名前>.py` として保存します。
+5. `python charts.py` を実行します。一覧でチャートにエラー（✗）が出たら、そのエラーメッセージを同じCopilotチャットに貼り、ファイル全体の再生成を依頼します。
+
+---
+
+タイミングチャート定義ファイルを生成してください。出力は「完成したPythonファイル1つ」のみを1つのコードブロックで返してください。前後に説明文は付けないでください。
+
+## 必須の構造
+
+すべてのファイルは正確に次の構造に従ってください:
+
+```python
+"""チャートの内容を1行で説明するdocstring"""
+import math
+from chartlib import Chart
+
+def chart():
+    c = Chart("<チャートのタイトル>")
+    # 信号ごとにビルダー呼び出しを1つ
+    return c.build()
+```
+
+時刻はすべて「秒」です。小さい単位は小数で表します: 0.001 が 1 ms、0.000001 が 1 us、0.000000001 が 1 ns。
+
+## ビルダーAPI（chartlibで使用してよい機能はこれだけ）
+
+### Chart(title)
+チャートを作成します。
+
+### c.clock(name, period, until, start=0, duty=50)
+デジタルクロック: `period/2` ごとにトグルし、`start` の時点でHIGHから始まり `until` まで続きます。
+例: `c.clock("clk", period=0.04, until=0.1)`  # 0〜0.02 がHIGH、0.02〜0.04 がLOW、…
+
+### c.digital(name, fn, t0=0, t1=0.1, dt=0.005)
+`dt` ごとにサンプリングするデジタル信号。`fn(t)` は必ず真偽値を返します: True → "1"、False → "0"。
+例: `c.digital("ready", fn=lambda t: t >= 0.025, t0=0, t1=0.1, dt=0.005)`
+
+### c.analog(name, fn, t0=0, t1=0.1, dt=0.002)
+`dt` ごとにサンプリングするアナログ波形。`fn(t)` は必ず数値を返します。曲線として描画され、CSVには実数値で出力されます。
+例: `c.analog("vsense", fn=lambda t: math.sin(2 * math.pi * t / 0.1), t0=0, t1=0.1, dt=0.002)`
+
+### c.add(name, transitions)
+明示的な遷移リストによる生のデジタル信号: `(時刻, 状態)` タプルのリスト。状態は "0"、"1"、"x"（ドントケア）、"z"（ハイインピーダンス）のいずれかです。
+例: `c.add("en", [(0, "0"), (0.005, "1"), (0.035, "0")])`
+
+## 絶対的なルール
+
+- `chart()` 関数はちょうど1つ定義し、戻り値は `c.build()` にする。それ以外のトップレベルコードは書かないこと。
+- importは標準ライブラリ（`math`、`random` など）と `from chartlib import Chart` のみ。matplotlib、numpy、pandas は絶対にimportしないこと。
+- `print`、ファイル入出力、描画は禁止。この関数はデータを作るだけにすること。
+- 乱数を使う場合は必ずシードを固定する（`random.seed(0)`）。チャートを再現可能にするためです。
+- 信号名はチャート内で一意にすること。
+- 冒頭にチャートの意図を説明する1行のdocstringを必ず入れること。
+- 時刻はすべて「秒」— `0.001`（1 ms）や `0.000001`（1 us）のような小数で指定します。
+
+## 正しいファイルの完全な例
+
+```python
+"""Sine vs clock - clk: 周期0.04秒。sin: アナログ正弦波、周期0.1秒。"""
+import math
+from chartlib import Chart
+
+def chart():
+    c = Chart("Sine vs clock")
+    c.clock("clk", period=0.04, until=0.1)
+    c.analog("sin", fn=lambda t: math.sin(2 * math.pi * t / 0.1), t0=0, t1=0.1, dt=0.002)
+    return c.build()
+```
+
+出力はすべて自動的にバリデーションされます。バリデーションエラーが報告された場合は、問題を修正した完全なファイルを再生成してください。
