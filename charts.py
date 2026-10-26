@@ -81,7 +81,7 @@ def main():
         choice = _ask("Preview a chart — enter a number (or press Enter to quit): ").strip()
         if not choice:
             return
-        if not choice.isdigit() or not 1 <= int(choice) <= len(entries):
+        if not choice.isdecimal() or not 1 <= int(choice) <= len(entries):
             print(f"  Please enter a number between 1 and {len(entries)}.\n")
             continue
         entry = entries[int(choice) - 1]

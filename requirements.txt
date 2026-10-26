@@ -1,2 +1,4 @@
 # Chart rendering & preview
+# Floor is a code-level requirement: per-glyph CJK font fallback needs >=3.6.
+# pip picks a Python-appropriate version automatically (3.14 -> 3.11.x, 3.10 -> 3.10.x).
 matplotlib>=3.7

@@ -42,6 +42,7 @@ pip install -r requirements.txt
 Notes:
 - Prefer the `py` launcher? Use `py -3.10 -m venv .venv` (any installed version
   works; nothing here requires exactly 3.10).
+- Tested with Python 3.14 on Windows and Fedora Linux.
 - PowerShell only: if `Activate.ps1` is blocked with a script-execution error,
   run this once, then retry:
   `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
@@ -89,3 +90,6 @@ time,clk,sin
   (`(.venv)` in your prompt) and you ran `pip install -r requirements.txt`.
   If there's a warning about a non-interactive backend, Python was installed
   without tkinter: reinstall it with the "tcl/tk and IDLE" option ticked.
+- **Piped/redirected output shows `?` instead of ✓/✗** — Python ≤3.14 falls
+  back to the ANSI codepage when output isn't a real console. Set
+  `PYTHONUTF8=1`, or use Python 3.15+ where UTF-8 is the default.

@@ -37,6 +37,7 @@ pip install -r requirements.txt
 
 メモ：
 - `py` ランチャーを使う場合は `py -3.10 -m venv .venv`（インストール済みのどのバージョンでも動作します。3.10ぴったりである必要はありません）。
+- Windows と Fedora Linux の Python 3.14 で動作確認済み。
 - PowerShell のみ：`Activate.ps1` がスクリプト実行ポリシーでブロックされた場合は、次を一度だけ実行してから再試行してください：
   `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 - プロンプトの先頭が `(.venv)` になっていれば仮想環境は有効です。なっていない場合は、そこで中止してください — このまま続けるとインストール先がグローバルPythonになってしまいます。
@@ -68,3 +69,4 @@ time,clk,sin
 - **一覧でチャートに ✗ エラーが表示される** — ファイルが不正です。エラーメッセージをそのままCopilotのチャットに貼り、ファイル全体の再生成を依頼してください。
 - **`python` が認識されない** — `py` ランチャーを使うか、「Add to PATH」を有効にしてPythonを再インストールしてください。
 - **プレビューウィンドウが表示されない** — venvが有効か（プロンプト先頭の `(.venv)`）と、`pip install -r requirements.txt` の実行を確認してください。非対話バックエンドに関する警告が出る場合は、tkinterなしでPythonがインストールされています。「tcl/tk and IDLE」オプションにチェックを入れて再インストールしてください。
+- **パイプ/リダイレクト時に ✓/✗ が `?` になる** — Python ≤3.14 では出力が実コンソールでない場合、ANSIコードページにフォールバックします。`PYTHONUTF8=1` を設定するか、Python 3.15+ を使用してください。

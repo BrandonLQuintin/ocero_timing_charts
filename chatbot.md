@@ -56,6 +56,11 @@ Analog waveform sampled every `dt`. `fn(t)` must return a number; it is drawn
 as a curve and exported to CSV as real values.
 Example: `c.analog("vsense", fn=lambda t: math.sin(2 * math.pi * t / 0.1), t0=0, t1=0.1, dt=0.002)`
 
+### c.dac(name, fn, t0=0, t1=0.1, dt=0.005)
+DAC output: sampled like `analog`, but drawn as discrete steps (zero-order
+hold) — use it for a DAC's output or any value that holds between updates.
+Example: `c.dac("vdac", fn=lambda t: 2.5 * (t / 0.1), t0=0, t1=0.1, dt=0.005)`
+
 ### c.add(name, transitions)
 Raw digital signal from explicit transitions: a list of `(time, state)` tuples,
 where state is one of "0", "1", "x" (don't care), "z" (high impedance).
@@ -66,6 +71,7 @@ Example: `c.add("en", [(0, "0"), (0.005, "1"), (0.035, "0")])`
 - Exactly one function `chart()` returning `c.build()`. No other top-level code.
 - Only stdlib imports (`math`, `random`, ...) plus `from chartlib import Chart`.
   NEVER import matplotlib, numpy, or pandas.
+- Use syntax compatible with Python 3.10.
 - No `print`, no file I/O, no plotting. The function only builds data.
 - If you use randomness, seed it (`random.seed(0)`) so the chart is reproducible.
 - Signal names must be unique within a chart.

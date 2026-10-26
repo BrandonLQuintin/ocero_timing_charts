@@ -18,10 +18,34 @@ import math
 import os
 
 import matplotlib.pyplot as plt
+from matplotlib import font_manager as fm
+from matplotlib.ticker import MaxNLocator
 
 ALLOWED_STATES = ("0", "1", "x", "z")
 _ANALOG_DECIMALS = 6  # decimal places for analog values in CSV output
 _EPS = 1e-9
+
+# Japanese/CJK text in titles and signal names: DejaVu Sans (matplotlib's
+# default) has no CJK glyphs, so we fall back per-glyph to a CJK font
+# (matplotlib >= 3.6). The list covers Windows (Yu Gothic/Meiryo/MS Gothic),
+# macOS (Hiragino) and Linux (Noto/IPA/Takao).
+_CJK_FONTS = [
+    "Yu Gothic", "Yu Gothic UI", "Meiryo", "MS Gothic",
+    "Noto Sans CJK JP", "Noto Sans JP", "IPAexGothic", "IPAPGothic",
+    "Hiragino Sans", "TakaoGothic",
+]
+
+
+def _configure_fonts():
+    # NOTE: font.family must be a concrete font list, NOT the "sans-serif"
+    # alias — matplotlib expands the alias to only the first available font,
+    # which defeats per-glyph CJK fallback entirely. Fonts not installed on
+    # this machine are pruned first, otherwise findfont logs a "not found"
+    # warning for each of them on every text element.
+    available = {f.name for f in fm.fontManager.ttflist}
+    chain = [f for f in ["DejaVu Sans"] + _CJK_FONTS if f in available]
+    plt.rcParams["font.family"] = chain or ["DejaVu Sans"]
+    plt.rcParams["axes.unicode_minus"] = False  # ASCII minus sign: no tofu on CJK fonts
 
 
 class ChartError(ValueError):
@@ -117,23 +141,14 @@ class Chart:
 
     def analog(self, name, fn, t0=0, t1=0.1, dt=0.002):
         """Analog signal: sample fn(t) -> number every dt; drawn as a curve."""
-        self._check_new_name(name)
-        if not callable(fn):
-            raise ChartError(f"analog {name!r}: fn must be callable")
-        samples = []
-        for t in self._time_grid("analog", name, t0, t1, dt):
-            try:
-                v = fn(t)
-            except Exception as exc:
-                raise ChartError(
-                    f"analog {name!r}: fn raised {type(exc).__name__} at t={t:g}: {exc}"
-                ) from None
-            if not _is_number(v):
-                raise ChartError(
-                    f"analog {name!r}: fn must return a number (got {v!r} at t={t:g})"
-                )
-            samples.append((t, float(v)))
+        samples = self._sample_number_fn("analog", name, fn, t0, t1, dt)
         self._signals.append({"name": str(name), "kind": "analog", "samples": samples})
+
+    def dac(self, name, fn, t0=0, t1=0.1, dt=0.005):
+        """DAC output: sampled like analog, but drawn as discrete steps
+        (zero-order hold) since a DAC holds each code until the next one."""
+        samples = self._sample_number_fn("dac", name, fn, t0, t1, dt)
+        self._signals.append({"name": str(name), "kind": "dac", "samples": samples})
 
     def add(self, name, transitions):
         """Raw digital signal from (time, state) pairs; state in "0"/"1"/"x"/"z"."""
@@ -162,6 +177,26 @@ class Chart:
         self._signals.append({"name": str(name), "kind": "digital", "transitions": clean})
 
     # -- internals ------------------------------------------------------------
+
+    def _sample_number_fn(self, kind, name, fn, t0, t1, dt):
+        """Sample fn(t) -> number every dt from t0 to t1; shared by analog/dac."""
+        self._check_new_name(name)
+        if not callable(fn):
+            raise ChartError(f"{kind} {name!r}: fn must be callable")
+        samples = []
+        for t in self._time_grid(kind, name, t0, t1, dt):
+            try:
+                v = fn(t)
+            except Exception as exc:
+                raise ChartError(
+                    f"{kind} {name!r}: fn raised {type(exc).__name__} at t={t:g}: {exc}"
+                ) from None
+            if not _is_number(v):
+                raise ChartError(
+                    f"{kind} {name!r}: fn must return a number (got {v!r} at t={t:g})"
+                )
+            samples.append((t, float(v)))
+        return samples
 
     def _check_new_name(self, name):
         if not isinstance(name, str) or not name.strip():
@@ -244,19 +279,19 @@ def validate_chart(data):
                         f"digital signal {name!r}: state {state!r} must be one of "
                         f"{list(ALLOWED_STATES)}"
                     )
-        elif kind == "analog":
+        elif kind in ("analog", "dac"):
             pairs = sig.get("samples")
             if not isinstance(pairs, list) or not pairs:
-                raise ChartError(f"analog signal {name!r}: samples must be a non-empty list")
+                raise ChartError(f"{kind} signal {name!r}: samples must be a non-empty list")
             for item in pairs:
                 if not isinstance(item, (tuple, list)) or len(item) != 2:
                     raise ChartError(
-                        f"analog signal {name!r}: samples must be (time, value) pairs"
+                        f"{kind} signal {name!r}: samples must be (time, value) pairs"
                     )
                 t, v = item
                 if not _is_number(t) or not _is_number(v):
                     raise ChartError(
-                        f"analog signal {name!r}: (time, value) must be numbers, got {item!r}"
+                        f"{kind} signal {name!r}: (time, value) must be numbers, got {item!r}"
                     )
         else:
             raise ChartError(f"signal {name!r}: unknown kind {kind!r}")
@@ -358,7 +393,7 @@ def save_csv(data, path):
             row = [format_time(t)]
             for sig, column in zip(data["signals"], columns):
                 v = column[i]
-                if sig["kind"] == "analog":
+                if sig["kind"] in ("analog", "dac"):
                     v = round(float(v), _ANALOG_DECIMALS) + 0.0  # normalize -0.0 to 0.0
                 row.append(v)
             writer.writerow(row)
@@ -370,10 +405,12 @@ def save_csv(data, path):
 def render_chart(data, save_path=None):
     """Draw the chart and open an interactive preview window (or save to a file).
 
-    Digital signals are drawn as step-waveform lanes; analog signals as curves.
-    All lanes share the same time axis. save_path is a test hook for headless
-    rendering; the menu itself never writes image files.
+    Digital signals are drawn as step-waveform lanes; analog signals as curves
+    and DAC outputs as discrete steps. All lanes share the same time axis.
+    save_path is a test hook for headless rendering; the menu itself never
+    writes image files.
     """
+    _configure_fonts()
     signals = data["signals"]
     n = len(signals)
     t_start, t_end = time_span(data)
@@ -386,11 +423,17 @@ def render_chart(data, save_path=None):
     for ax, sig in zip(axes, signals):
         if sig["kind"] == "digital":
             _draw_digital(ax, sig, t_start, t_end + pad)
+            ax.set_yticks([0, 1])
+            ax.set_yticklabels(["0", "1"])
         else:
-            _draw_analog(ax, sig)
+            if sig["kind"] == "dac":
+                _draw_dac(ax, sig)
+            else:
+                _draw_analog(ax, sig)
+            ax.yaxis.set_major_locator(MaxNLocator(3))  # keep a visible value range
         ax.set_ylabel(sig["name"], rotation=0, ha="right", va="center")
-        ax.set_yticks([])
         ax.grid(axis="x", color="0.90", linewidth=0.8)
+        ax.tick_params(labelbottom=True)  # x numbers visible on every lane
         for side in ("top", "right", "left"):
             ax.spines[side].set_visible(False)
     axes[-1].set_xlabel("time (s)")
@@ -440,3 +483,9 @@ def _draw_analog(ax, sig):
     ts = [t for t, _ in sig["samples"]]
     vs = [v for _, v in sig["samples"]]
     ax.plot(ts, vs, color="tab:red", lw=1.6, zorder=2)
+
+
+def _draw_dac(ax, sig):
+    ts = [t for t, _ in sig["samples"]]
+    vs = [v for _, v in sig["samples"]]
+    ax.step(ts, vs, where="post", color="tab:purple", lw=1.6, zorder=2)
