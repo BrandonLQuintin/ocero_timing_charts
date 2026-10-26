@@ -44,8 +44,9 @@ All times are in SECONDS. Use decimals for smaller units: 0.001 is 1 ms,
 Creates a chart.
 
 ### c.clock(name, period, until, start=0, duty=50)
-Digital clock: toggles every `period/2`, starts HIGH at `start`, runs until `until`.
-Example: `c.clock("clk", period=0.04, until=0.1)`  # high 0-0.02, low 0.02-0.04, ...
+Digital clock: starts HIGH at `start`; stays HIGH for `period * duty/100`, LOW
+for the remainder of each `period`, repeating until `until`.
+Example: `c.clock("clk", period=0.04, until=0.1)`  # high 0-0.02, low 0.02-0.04, ... (duty=50)
 
 ### c.digital(name, fn, t0=0, t1=0.1, dt=0.005)
 Digital signal sampled every `dt`. `fn(t)` must return a bool: True -> "1", False -> "0".
@@ -53,7 +54,7 @@ Example: `c.digital("ready", fn=lambda t: t >= 0.025, t0=0, t1=0.1, dt=0.005)`
 
 ### c.analog(name, fn, t0=0, t1=0.1, dt=0.002)
 Analog waveform sampled every `dt`. `fn(t)` must return a number; it is drawn
-as a curve and exported to CSV as real values.
+as a curve and exported to CSV as numbers rounded to 6 decimals.
 Example: `c.analog("vsense", fn=lambda t: math.sin(2 * math.pi * t / 0.1), t0=0, t1=0.1, dt=0.002)`
 
 ### c.dac(name, fn, t0=0, t1=0.1, dt=0.005)
@@ -65,6 +66,17 @@ Example: `c.dac("vdac", fn=lambda t: 2.5 * (t / 0.1), t0=0, t1=0.1, dt=0.005)`
 Raw digital signal from explicit transitions: a list of `(time, state)` tuples,
 where state is one of "0", "1", "x" (don't care), "z" (high impedance).
 Example: `c.add("en", [(0, "0"), (0.005, "1"), (0.035, "0")])`
+
+## CSV output (what the user gets downstream)
+
+- Wide table: a `time` column plus one column per signal.
+- Rows cover the union of all signals' sample/transition times; each signal
+  holds its last value between its own samples.
+- `analog`/`dac` values are exported as numbers rounded to 6 decimals
+  (integer codes appear as e.g. `2048.0`).
+- Choose `dt` so sample times land on the features that matter (edges,
+  peaks): a peak at 0.00125 s is missed by `dt=0.001` but captured by
+  `dt=0.000125`.
 
 ## Hard rules
 
