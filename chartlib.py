@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import csv
 import importlib.util
+import logging
 import math
 import os
 
@@ -46,6 +47,10 @@ def _configure_fonts():
     chain = [f for f in ["DejaVu Sans"] + _CJK_FONTS if f in available]
     plt.rcParams["font.family"] = chain or ["DejaVu Sans"]
     plt.rcParams["axes.unicode_minus"] = False  # ASCII minus sign: no tofu on CJK fonts
+    # Variable-font CJK files (Noto Sans CJK JP etc.) trigger cosmetic scoring
+    # chatter like "Failed to find font weight normal ... now using 100." on
+    # every render. Rendering itself is unaffected, so silence that logger.
+    logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
 
 class ChartError(ValueError):
