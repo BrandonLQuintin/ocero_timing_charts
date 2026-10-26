@@ -241,7 +241,7 @@ class Chart:
                     "transitions": _collapse(s["transitions"]),
                 })
             else:
-                signals.append({"name": s["name"], "kind": "analog", "samples": list(s["samples"])})
+                signals.append({"name": s["name"], "kind": s["kind"], "samples": list(s["samples"])})
         data = {"title": self.title, "signals": signals}
         return validate_chart(data)
 
@@ -432,7 +432,7 @@ def render_chart(data, save_path=None):
             ax.set_yticklabels(["0", "1"])
         else:
             if sig["kind"] == "dac":
-                _draw_dac(ax, sig)
+                _draw_dac(ax, sig, t_end + pad)
             else:
                 _draw_analog(ax, sig)
             ax.yaxis.set_major_locator(MaxNLocator(3))  # keep a visible value range
@@ -490,7 +490,11 @@ def _draw_analog(ax, sig):
     ax.plot(ts, vs, color="tab:red", lw=1.6, zorder=2)
 
 
-def _draw_dac(ax, sig):
+def _draw_dac(ax, sig, t_end):
     ts = [t for t, _ in sig["samples"]]
     vs = [v for _, v in sig["samples"]]
+    # zero-order hold: the last code persists to the end of the time range
+    if ts[-1] < t_end:
+        ts.append(t_end)
+        vs.append(vs[-1])
     ax.step(ts, vs, where="post", color="tab:purple", lw=1.6, zorder=2)
